@@ -12,13 +12,18 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.DeferredSpawnEggItem;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 import net.neoforged.neoforge.registries.*;
+import org.mcenvision.drunir.entity.server.custom.deer.Deer;
 
 import java.util.*;
+import java.util.function.Supplier;
 
 public final class CollectionCreatures {
     public static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(Registries.ENTITY_TYPE, DrunirCollection.ID);
     public static final Map<String, DeferredHolder<EntityType<?>, EntityType<Creature>>> TYPES = new LinkedHashMap<>();
     public static final List<DeferredItem<DeferredSpawnEggItem>> CREATIVE_EGGS = new ArrayList<>();
+
+    public static DeferredHolder<EntityType<?>, EntityType<Deer>> DEER = ENTITIES.register("deer",
+            ()-> EntityType.Builder.of(Deer::new, MobCategory.AMBIENT).sized(1f, 1.5f).build(DrunirCollection.ID + ":deer"));
     public static final DeferredHolder<EntityType<?>, EntityType<SmallFireball>> FIREBALL = ENTITIES.register("magmafiend_fireball",
             () -> EntityType.Builder.<SmallFireball>of(SmallFireball::new, MobCategory.MISC)
                     .sized(0.5F, 0.5F).clientTrackingRange(8).updateInterval(10)
@@ -27,16 +32,28 @@ public final class CollectionCreatures {
     private CollectionCreatures() {}
 
     public static void register(IEventBus bus) {
+
         for (String name : DrunirCollection.CONTENT.creatures()) {
+            if (name.equals("deer")) {
+                var egg = DrunirCollection.ITEMS.register("deer_spawn_egg",
+                        () -> new DeferredSpawnEggItem(DEER, 0x655342, 0xBCB17C, new Item.Properties()));
+                CREATIVE_EGGS.add(egg);
+            }
+
             float width = name.equals("magmafiend") || name.equals("portal_guardian") ? 1.4F : 0.8F;
             float height = name.equals("magmafiend") || name.equals("portal_guardian") ? 2.8F : 1.5F;
+
             var type = ENTITIES.register(name, () -> EntityType.Builder.of(Creature::new, MobCategory.CREATURE)
-                    .sized(width, height).clientTrackingRange(8).build(DrunirCollection.ID + ":" + name));
+                    .sized(width, height)
+                    .clientTrackingRange(8)
+                    .build(DrunirCollection.ID + ":" + name));
+
             TYPES.put(name, type);
+
             var egg = DrunirCollection.ITEMS.register(name + "_spawn_egg",
                     () -> new DeferredSpawnEggItem(type, 0x655342, 0xBCB17C, new Item.Properties()));
-            if (name.equals("deer")) CREATIVE_EGGS.add(egg);
         }
+
         ENTITIES.register(bus);
         bus.addListener(CollectionCreatures::attributes);
     }
@@ -44,6 +61,8 @@ public final class CollectionCreatures {
     private static void attributes(EntityAttributeCreationEvent event) {
         TYPES.values().forEach(type -> event.put(type.get(), Mob.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 20).add(Attributes.MOVEMENT_SPEED, 0.2).build()));
+
+        event.put(DEER.get(), Deer.createAttributes().build());
     }
 
     public static final class Creature extends PathfinderMob {
